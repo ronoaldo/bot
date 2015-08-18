@@ -16,18 +16,11 @@ type Form struct {
 }
 
 type Table struct {
-	ID   string
-	Rows []TableRow
-}
-
-type TableCell struct {
-	ID    string
-	Value string
-}
-
-type TableRow struct {
-	ID    string
-	Cells []TableCell
+	ID     string
+	Class  string
+	Header []string
+	Data   [][]string
+	RawCells [][]string
 }
 
 type Page struct {
@@ -40,7 +33,54 @@ func (page *Page) Raw() *http.Response {
 }
 
 func (page *Page) Tables() ([]Table) {
-	return nil
+	if page == nil {
+		return nil
+	}
+	if page.resp == nil {
+		return nil
+	}
+	doc, err := goquery.NewDocumentFromReader(page.resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	debugf("Loaded document from response.")
+	tables := make([]Table, 0)
+	doc.Find("table").Each(func(i int, t *goquery.Selection) {
+		table := Table{
+			ID:    t.AttrOr("id", ""),
+			Class: t.AttrOr("class", ""),
+		}
+
+		t.Find("tr").Each(func(j int, tr *goquery.Selection){
+			rawRow := make([]string, 0)
+			tr.Find("th").Each(func (k int, th *goquery.Selection) {
+				// Append to the header
+				table.Header = append(table.Header, th.Text())
+				if raw, err := th.Html(); err == nil {
+					rawRow = append(rawRow, raw)
+				} else {
+					debugf("Error parsing node HTML: %v", err)
+				}
+			})
+			row := make([]string, 0, 10)
+			tr.Find("td").Each(func (k int, td *goquery.Selection) {
+				row = append(row, td.Text())
+				if raw, err := td.Html() ; err == nil {
+					rawRow = append(rawRow, raw)
+				} else {
+					debugf("Error parsing node HTML: %v", err)
+				}
+			})
+			if len(row) > 0 {
+				table.Data = append(table.Data, row)
+			}
+			table.RawCells = append(table.RawCells, rawRow)
+		})
+
+		tables = append(tables, table)
+	})
+
+	return tables
 }
 
 // Forms parses the page extracting all forms found as url.Values.

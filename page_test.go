@@ -32,7 +32,30 @@ func TestPageForm(t *testing.T) {
 }
 
 func TestPageTable(t *testing.T) {
-	
+	p := &Page{
+		resp: newResponse(sampleHTMLPage()),
+	}
+	tables := p.Tables()
+	if len(tables) != 1 {
+		t.Errorf("Unexpected table count: %d, expected 1", len(tables))
+	}
+	for _, table := range tables {
+		t.Logf("Found table: %#v", table)
+		// The table should have two rows
+		if len(table.Data) != 3 {
+			t.Errorf("Unexpected row count: %d, expected 3", len(table.Data))
+		} else {
+			if len(table.Data[0]) != 2 {
+				t.Errorf("Row 1 should have size 2, got %d", len(table.Data[0]))
+			}
+			if len(table.Data[1]) != 1 {
+				t.Errorf("Row 2 should have size 1, got %d", len(table.Data[1]))
+			}
+			if len(table.Data[2]) != 2 {
+				t.Errorf("Row 3 should have size 2, got %d", len(table.Data[2]))
+			}
+		}
+	}
 }
 
 func sampleHTMLPage() io.ReadCloser {
@@ -67,8 +90,20 @@ func sampleHTMLPage() io.ReadCloser {
 				</ul>
 			</fieldset>
 		</form>
-		<table class="table" role="table" >
-			<thead>
+		<table class="table" role="table" id="sampletbl">
+			<tr>
+					<th>Header 1</th><th>Header 2</th>
+			</tr>
+			<tr>
+					<td>Cell 1,1</td><td>Cell 1, 2</td>
+			</tr>
+			<tr>
+					<td colspan=2>Sum</td>
+			</tr>
+			<tr>
+					<td></td>
+					<td><a href="/new">Add new row</a></td>
+			</tr>
 		</table>
 	</body>
 </html>`))
