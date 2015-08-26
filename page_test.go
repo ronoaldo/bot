@@ -1,6 +1,7 @@
 package bot
 
-import(
+import (
+	"bytes"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -10,9 +11,12 @@ import(
 
 func TestPageRaw(t *testing.T) {
 	p := &Page{
-		resp: newResponse(nil),
+		resp: newResponse(ioutil.NopCloser(new(bytes.Buffer))),
 	}
-	resp := p.Raw()
+	resp, err := p.Raw()
+	if err != nil {
+		t.Error(err)
+	}
 	if resp == nil {
 		t.Errorf("Unexpected nil http.Response from Page.Raw()")
 	}
@@ -22,7 +26,11 @@ func TestPageForm(t *testing.T) {
 	p := &Page{
 		resp: newResponse(sampleHTMLPage()),
 	}
-	forms := p.Forms()
+
+	forms, err := p.Forms()
+	if err != nil {
+		t.Error(err)
+	}
 	if len(forms) != 2 {
 		t.Errorf("Expected 2 forms, got %d", len(forms))
 	}
@@ -31,11 +39,33 @@ func TestPageForm(t *testing.T) {
 	}
 }
 
+func TestMultipleCalls(t *testing.T) {
+	p := &Page{
+		resp: newResponse(sampleHTMLPage()),
+	}
+
+	f1, err := p.Forms()
+	if err != nil {
+		t.Error(err)
+	}
+	f2, err := p.Forms()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(f1) != len(f2) {
+		t.Errorf("Multiple calls return different results:\nf1 => %#v\nf2 => %#v", f1, f2)
+	}
+}
+
 func TestPageTable(t *testing.T) {
 	p := &Page{
 		resp: newResponse(sampleHTMLPage()),
 	}
-	tables := p.Tables()
+	tables, err := p.Tables()
+	if err != nil {
+		t.Error(err)
+	}
 	if len(tables) != 1 {
 		t.Errorf("Unexpected table count: %d, expected 1", len(tables))
 	}
@@ -109,7 +139,7 @@ func sampleHTMLPage() io.ReadCloser {
 </html>`))
 }
 
-func newResponse(body io.ReadCloser) *http.Response{
+func newResponse(body io.ReadCloser) *http.Response {
 	return &http.Response{
 		Body: body,
 	}

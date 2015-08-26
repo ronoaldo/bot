@@ -1,59 +1,140 @@
 package bot
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
+var (
+	errNilPage     = fmt.Errorf("bot: nil page")
+	errNilResp     = fmt.Errorf("bot: nil response")
+	errNilRespBody = fmt.Errorf("bot: nil response body")
+)
+
+// Form is a representation of an HTML form structure.
+// This struct is used by Page to parse HTML forms embedded into the document.
+// Fields is populated with the parsed form input and select fields.
 type Form struct {
 	Method string
-	ID string
-	Name string
+	ID     string
+	Name   string
 	Action string
+
+	// Fields contains the parsed form input and select elements.
 	Fields url.Values
 }
 
+// Print pretty prints the form into a human-readable, line delimited string.
+func (f *Form) Print() string {
+	buff := new(bytes.Buffer)
+	fmt.Fprintf(buff, "form#%s\n", f.ID)
+	maxw := 0
+	for k := range f.Fields {
+		if len(k) > maxw {
+			maxw = len(k)
+		}
+	}
+	format := fmt.Sprintf("%%%ds:%%s\n", maxw)
+	for k, v := range f.Fields {
+		if len(v) > 0 {
+			fmt.Fprintf(buff, format, k, v)
+		}
+	}
+	return buff.String()
+}
+
+// Table represents an HTML data table.
+// It is used by Page to store the parsed table data.
 type Table struct {
 	ID     string
 	Class  string
 	Header []string
 	Data   [][]string
+
+	// RawCells, unlike Data, contains the raw HTML elements inside
+	// table cells.
 	RawCells [][]string
 }
 
+// Page is a wrapper to an http.Response, with some usefull methods.
 type Page struct {
 	resp *http.Response
+	body []byte
 }
 
-// Raw returns the raw bytes from the response as an io.Reader
-func (page *Page) Raw() *http.Response {
-	return page.resp
+// Raw returns the raw Response, after reading all the data from the response Body.
+// This is usefull to inspect the response size, headers, and other attributes.
+// The body is already closed after you call this method, and if you need the raw
+// response bytes, call Body() instead.
+func (page *Page) Raw() (*http.Response, error) {
+	// Load the body in memory before returning.
+	if _, err := page.Body(); err != nil {
+		return nil, err
+	}
+	return page.resp, nil
 }
 
-func (page *Page) Tables() ([]Table) {
-	if page == nil {
-		return nil
-	}
-	if page.resp == nil {
-		return nil
-	}
-	doc, err := goquery.NewDocumentFromReader(page.resp.Body)
+// Body returns a copy of the response body as a new Reader.
+// Use this if you need to integrate with any third party that expectes the reader.
+// Thi is, basically, a shortcut for bytes.NewReader(page.Body()).
+func (page *Page) Body() (io.Reader, error) {
+	b, err := page.Bytes()
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+	return bytes.NewReader(b), nil
+}
+
+// Bytes returns the page body bytes, so you can json.Unmarshal it.
+func (page *Page) Bytes() ([]byte, error) {
+	if err := page.sanityCheck(); err != nil {
+		return nil, err
+	}
+	if err := page.ensureBodyReady(); err != nil {
+		return nil, err
+	}
+	return page.body, nil
+}
+
+// Tables parses the response body, and extract all <table>s from it.
+// The result is nil, if there is an error reading the response,
+// or if there is an error building the document reader.
+//
+// The returned table is filled with the text content from the table.
+// That usually means that Table.Data is the text in the table cells.
+// <th> elements are stored in the Table.Header slice.
+// You can find the raw HTML data from each table cell
+// in the Table.RawCells. This is usefull if you need to parse links inside
+// tables.
+func (page *Page) Tables() ([]Table, error) {
+	var (
+		body io.Reader
+		doc  *goquery.Document
+		err  error
+	)
+	if body, err = page.Body(); err != nil {
+		return nil, err
+	}
+	if doc, err = goquery.NewDocumentFromReader(body); err != nil {
+		return nil, err
 	}
 	debugf("Loaded document from response.")
-	tables := make([]Table, 0)
+	var tables []Table
 	doc.Find("table").Each(func(i int, t *goquery.Selection) {
 		table := Table{
 			ID:    t.AttrOr("id", ""),
 			Class: t.AttrOr("class", ""),
 		}
 
-		t.Find("tr").Each(func(j int, tr *goquery.Selection){
-			rawRow := make([]string, 0)
-			tr.Find("th").Each(func (k int, th *goquery.Selection) {
+		t.Find("tr").Each(func(j int, tr *goquery.Selection) {
+			var rawRow []string
+			tr.Find("th").Each(func(k int, th *goquery.Selection) {
 				// Append to the header
 				table.Header = append(table.Header, th.Text())
 				if raw, err := th.Html(); err == nil {
@@ -63,9 +144,9 @@ func (page *Page) Tables() ([]Table) {
 				}
 			})
 			row := make([]string, 0, 10)
-			tr.Find("td").Each(func (k int, td *goquery.Selection) {
+			tr.Find("td").Each(func(k int, td *goquery.Selection) {
 				row = append(row, td.Text())
-				if raw, err := td.Html() ; err == nil {
+				if raw, err := td.Html(); err == nil {
 					rawRow = append(rawRow, raw)
 				} else {
 					debugf("Error parsing node HTML: %v", err)
@@ -80,25 +161,39 @@ func (page *Page) Tables() ([]Table) {
 		tables = append(tables, table)
 	})
 
-	return tables
+	return tables, nil
 }
 
-// Forms parses the page extracting all forms found as url.Values.
-func (page *Page) Forms() ([]Form) {
-	// create a new document from response body
-	if page == nil {
-		return nil
+// Forms parses the response extracting all <form> elements
+// and returns them in the resulting Form slice.
+// The return is nil if there is an error reading from the response,
+// or if there is an error building the document reader.
+//
+// From the form tag, this method returns the properties:
+// 	* id
+// 	* action
+// 	* method
+// 	* name
+//
+// The parser scans all <input> and <select> elements inside the form,
+// and decodes their values into the Form.Fields map.
+// For selects, the returned value is the option marked with the "selected"
+// attribute, or empty otherwise.
+func (page *Page) Forms() ([]Form, error) {
+	var (
+		body io.Reader
+		doc  *goquery.Document
+		err  error
+	)
+	if body, err = page.Body(); err != nil {
+		return nil, err
 	}
-	if page.resp == nil {
-		return nil
-	}
-	doc, err := goquery.NewDocumentFromReader(page.resp.Body)
-	if err != nil {
-		panic(err)
+	if doc, err = goquery.NewDocumentFromReader(body); err != nil {
+		return nil, err
 	}
 	debugf("Loaded document from response: %#v", doc)
 
-	forms := make([]Form, 0)
+	var forms []Form
 	// Parse the forms in the document
 	doc.Find("form").Each(func(i int, f *goquery.Selection) {
 		formid := f.AttrOr("id", "")
@@ -155,5 +250,41 @@ func (page *Page) Forms() ([]Form) {
 			Fields: fields,
 		})
 	})
-	return forms
+	return forms, nil
+}
+
+// sanityCheck makes sure that the page is valid, and is wrapping a valid response.
+func (page *Page) sanityCheck() error {
+	if page == nil {
+		return errNilPage
+	}
+	if page.resp == nil {
+		return errNilResp
+	}
+	if page.resp.Body == nil {
+		return errNilRespBody
+	}
+	return nil
+}
+
+// ensureBodyReady makes sure that the body is read once from the response.
+func (page *Page) ensureBodyReady() error {
+	if page.body == nil {
+		var err error
+		page.body, err = ioutil.ReadAll(page.resp.Body)
+		if err != nil {
+			return err
+		}
+		defer page.resp.Body.Close()
+		// Let's do some magic here, to convert ISO-8859-1 (Latin1) pages to Unicode
+		ct := strings.ToLower(page.resp.Header.Get("Content-Type"))
+		if strings.Contains(ct, "charset=iso-8859-1") {
+			b := make([]rune, len(page.body))
+			for i, c := range page.body {
+				b[i] = rune(c)
+			}
+			page.body = []byte(string(b))
+		}
+	}
+	return nil
 }

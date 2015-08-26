@@ -10,7 +10,7 @@ type request struct {
 }
 
 func (r *request) header() http.Header {
-	if (r.Request.Header == nil) {
+	if r.Request.Header == nil {
 		r.Request.Header = make(http.Header)
 	}
 	return r.Request.Header
@@ -29,7 +29,7 @@ type transport struct {
 
 func (t *transport) userAgent() string {
 	if t.ua == "" {
-		return "Mozilla/5.0 (KHTML, like Gecko) (Chrome compatible; headless)"
+		return "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
 	}
 	return t.ua
 }

@@ -3,50 +3,53 @@ package bot
 import (
 	"fmt"
 	"log"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
-	"strconv"
 )
 
 func TestBotCookieJar(t *testing.T) {
+	var (
+		resp *http.Response
+		page *Page
+		err  error
+	)
 	s := httptest.NewServer(&TestServer{})
 	defer s.Close()
 
 	bot := New()
-	p, err := bot.Get(s.URL + "/private/")
-	if err != nil {
+	if page, err = bot.Get(s.URL + "/private/"); err != nil {
 		t.Error(err)
 	}
-	resp := p.Raw()
-	defer resp.Body.Close()
+	if resp, err = page.Raw(); err != nil {
+		t.Error(err)
+	}
 	checkStatus(t, "for unauthorized response", resp.StatusCode, 403)
 
 	// Login and create a cookie
-	p, err = bot.Post(s.URL + "/login/", make(url.Values))
-	if err != nil {
+	if page, err = bot.Post(s.URL+"/login/", make(url.Values)); err != nil {
 		t.Error(err)
 	}
 
-	resp = p.Raw()
-	defer resp.Body.Close()
+	if resp, err = page.Raw(); err != nil {
+		t.Error(err)
+	}
 	checkStatus(t, "for login", resp.StatusCode, 200)
-	checkBody(t, resp.Body, "OK")
+	checkBody(t, page, "OK")
 
 	// We should be able to see private data
-	p, err = bot.Get(s.URL + "/private/")
-	if err != nil {
+	if page, err = bot.Get(s.URL + "/private/"); err != nil {
 		t.Error(err)
 	}
 
-	resp = p.Raw()
-	defer resp.Body.Close()
+	if resp, err = page.Raw(); err != nil {
+		t.Error(err)
+	}
 	checkStatus(t, "for authorized request", resp.StatusCode, 200)
-	checkBody(t, resp.Body, "PRIVATE")
+	checkBody(t, page, "PRIVATE")
 }
 
 func checkStatus(t *testing.T, when string, got, expected int) {
@@ -55,8 +58,8 @@ func checkStatus(t *testing.T, when string, got, expected int) {
 	}
 }
 
-func checkBody(t *testing.T, b io.Reader, expected string) {
-	if body, err := ioutil.ReadAll(b); err != nil {
+func checkBody(t *testing.T, page *Page, expected string) {
+	if body, err := page.Bytes(); err != nil {
 		t.Error(err)
 	} else {
 		// Body should be "OK"
@@ -76,14 +79,14 @@ func (t *TestServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/login/":
 		t.session = strconv.FormatInt(time.Now().Unix(), 16)
 		http.SetCookie(w, &http.Cookie{
-			Name: "TSID",
+			Name:  "TSID",
 			Value: t.session,
-			Path: "/",
+			Path:  "/",
 		})
 		fmt.Fprintf(w, "OK")
 	case "/private/":
 		var (
-			c *http.Cookie
+			c   *http.Cookie
 			err error
 		)
 		if c, err = r.Cookie("TSID"); err != nil {
