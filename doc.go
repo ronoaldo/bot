@@ -49,4 +49,4 @@ and updates a form.
 Bot does not provide any JavaScript inmplementation, nor a Rendering engine.
 It is just a headless, statefull HTTP client.
 */
-package bot
+package bot // import "ronoaldo.gopkg.net/bot"
