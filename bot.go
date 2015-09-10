@@ -1,10 +1,15 @@
 package bot
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+)
+
+var (
+	ErrTooManyRedirects = errors.New("bot: too many redirects")
 )
 
 // Bot implements a statefull HTTP client for interacting with websites.
@@ -12,6 +17,10 @@ type Bot struct {
 	b string
 	c http.Client
 	d bool
+
+	// lastUrl records the last seen URL using the CheckRedirect function.
+	// TODO(ronoaldo): make it concurrent safe - context?
+	lastUrl string
 }
 
 // New initializes a new Bot with an in-memory cookie management.
@@ -22,13 +31,16 @@ func New() *Bot {
 		panic(err)
 	}
 
-	return &Bot{
+	bot := &Bot{
 		c: http.Client{
 			Transport: &transport{
-				t: http.DefaultTransport},
+				t: http.DefaultTransport,
+			},
 			Jar: jar,
 		},
 	}
+	bot.c.CheckRedirect = bot.checkRedirect
+	return bot
 }
 
 // GET performs the HTTP GET to the provided URL and returns a Page.
@@ -79,4 +91,17 @@ func (bot *Bot) SetUA(userAgent string) *Bot {
 func (bot *Bot) BaseURL(baseURL string) *Bot {
 	bot.b = baseURL
 	return bot
+}
+
+// LastURL returns the last URL fetched by the bot.
+func (bot *Bot) LastURL() string {
+	return bot.lastUrl
+}
+
+func (bot *Bot) checkRedirect(req *http.Request, via []*http.Request) error {
+	bot.lastUrl = req.URL.String()
+	if len(via) > 10 {
+		return ErrTooManyRedirects
+	}
+	return nil
 }
