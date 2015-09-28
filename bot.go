@@ -3,6 +3,7 @@ package bot
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -14,9 +15,9 @@ var (
 
 // Bot implements a statefull HTTP client for interacting with websites.
 type Bot struct {
-	b string
-	c http.Client
-	d bool
+	b     string
+	c     http.Client
+	debug bool
 
 	// lastUrl records the last seen URL using the CheckRedirect function.
 	// TODO(ronoaldo): make it concurrent safe - context?
@@ -33,12 +34,14 @@ func New() *Bot {
 
 	bot := &Bot{
 		c: http.Client{
-			Transport: &transport{
-				t: http.DefaultTransport,
-			},
 			Jar: jar,
 		},
 	}
+	t := &transport{
+		t: http.DefaultTransport,
+		b: bot,
+	}
+	bot.c.Transport = t
 	bot.c.CheckRedirect = bot.checkRedirect
 	return bot
 }
@@ -52,6 +55,7 @@ func (bot *Bot) GET(url string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
+	bot.lastUrl = bot.b + url
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
@@ -68,6 +72,7 @@ func (bot *Bot) POST(url string, form url.Values) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
+	bot.lastUrl = bot.b + url
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
@@ -76,7 +81,7 @@ func (bot *Bot) POST(url string, form url.Values) (*Page, error) {
 
 // Debug enables debugging messages to standard error stream.
 func (bot *Bot) Debug(enabled bool) *Bot {
-	bot.d = enabled
+	bot.debug = enabled
 	return bot
 }
 
@@ -99,6 +104,7 @@ func (bot *Bot) LastURL() string {
 }
 
 func (bot *Bot) checkRedirect(req *http.Request, via []*http.Request) error {
+	log.Printf("Redirecting to: %v (via %v)", req, via)
 	bot.lastUrl = req.URL.String()
 	if len(via) > 10 {
 		return ErrTooManyRedirects

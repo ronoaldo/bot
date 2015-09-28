@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"log"
 	"net/http"
+	"net/http/httputil"
 )
 
 // request is a http.Request wrapper to add some helper functions
@@ -25,6 +27,7 @@ func (r *request) setUserAgent(ua string) {
 type transport struct {
 	t  http.RoundTripper
 	ua string
+	b  *Bot
 }
 
 func (t *transport) userAgent() string {
@@ -36,7 +39,16 @@ func (t *transport) userAgent() string {
 
 // RoundTrip implements the http.RoundTripper interface.
 func (t *transport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if t.b.debug {
+		b, _ := httputil.DumpRequest(r, true)
+		log.Printf("> Dumped request: \n>>>\n%s\n>>>\n", string(b))
+	}
 	req := &request{Request: r}
 	req.setUserAgent(t.userAgent())
-	return t.t.RoundTrip(req.Request)
+	resp, err := t.t.RoundTrip(req.Request)
+	if t.b.debug {
+		b, _ := httputil.DumpResponse(resp, false)
+		log.Printf("Dumped response: \n<<<\n%s\n<<<\n", string(b))
+	}
+	return resp, err
 }

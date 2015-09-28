@@ -3,12 +3,14 @@ package bot
 import (
 	"bytes"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 var (
@@ -35,15 +37,18 @@ func (f *Form) Print() string {
 	buff := new(bytes.Buffer)
 	fmt.Fprintf(buff, "form#%s\n", f.ID)
 	maxw := 0
+	keys := make([]string, 0, len(f.Fields))
 	for k := range f.Fields {
 		if len(k) > maxw {
 			maxw = len(k)
 		}
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 	format := fmt.Sprintf("%%%ds:%%s\n", maxw)
-	for k, v := range f.Fields {
-		if len(v) > 0 {
-			fmt.Fprintf(buff, format, k, v)
+	for _, k := range keys {
+		if len(f.Fields[k]) > 0 {
+			fmt.Fprintf(buff, format, k, f.Fields[k])
 		}
 	}
 	return buff.String()
