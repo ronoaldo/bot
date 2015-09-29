@@ -215,7 +215,7 @@ func (page *Page) Forms() ([]Form, error) {
 			value := input.AttrOr("value", "")
 			debugf("> Parsing input[type=%s, name=%s, value=%s]", _type, name, value)
 			switch strings.ToLower(_type) {
-			case "text", "hidden":
+			case "text", "hidden", "":
 				fields[name] = append(fields[name], value)
 			case "radio":
 				// We should only store the selected radio value
