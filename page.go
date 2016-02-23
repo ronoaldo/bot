@@ -1,3 +1,6 @@
+// Copyright 2015 Ronoaldo JLP <ronoaldo@gmail.com>
+// Licensed under the Apache License, Version 2.0
+
 package bot
 
 import (
