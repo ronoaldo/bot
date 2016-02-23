@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	// ErrTooManyRedirects is returned when the bot reaches more than 10 redirects.
 	ErrTooManyRedirects = errors.New("bot: too many redirects")
 )
 
@@ -22,9 +23,9 @@ type Bot struct {
 	c     http.Client
 	debug bool
 
-	// lastUrl records the last seen URL using the CheckRedirect function.
-	// TODO(ronoaldo): make it concurrent safe - context?
-	lastUrl string
+	// lastURL records the last seen URL using the CheckRedirect function.
+	// TODO(ronoaldo): change to a history of recent URLs.
+	lastURL string
 }
 
 // New initializes a new Bot with an in-memory cookie management.
@@ -58,7 +59,7 @@ func (bot *Bot) GET(url string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	bot.lastUrl = bot.b + url
+	bot.lastURL = bot.b + url
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
@@ -75,7 +76,7 @@ func (bot *Bot) POST(url string, form url.Values) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	bot.lastUrl = bot.b + url
+	bot.lastURL = bot.b + url
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
@@ -101,14 +102,9 @@ func (bot *Bot) BaseURL(baseURL string) *Bot {
 	return bot
 }
 
-// LastURL returns the last URL fetched by the bot.
-func (bot *Bot) LastURL() string {
-	return bot.lastUrl
-}
-
 func (bot *Bot) checkRedirect(req *http.Request, via []*http.Request) error {
 	log.Printf("Redirecting to: %v (via %v)", req, via)
-	bot.lastUrl = req.URL.String()
+	bot.lastURL = req.URL.String()
 	if len(via) > 10 {
 		return ErrTooManyRedirects
 	}
