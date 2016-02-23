@@ -25,7 +25,7 @@ type Bot struct {
 
 	// lastURL records the last seen URL using the CheckRedirect function.
 	// TODO(ronoaldo): change to a history of recent URLs.
-	lastURL string
+	history *History
 }
 
 // New initializes a new Bot with an in-memory cookie management.
@@ -40,6 +40,7 @@ func New() *Bot {
 		c: http.Client{
 			Jar: jar,
 		},
+		history: &History{},
 	}
 	t := &transport{
 		t: http.DefaultTransport,
@@ -59,7 +60,7 @@ func (bot *Bot) GET(url string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	bot.lastURL = bot.b + url
+	bot.history.Add(bot.b + url)
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
@@ -76,7 +77,7 @@ func (bot *Bot) POST(url string, form url.Values) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	bot.lastURL = bot.b + url
+	bot.history.Add(bot.b + url)
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
@@ -102,9 +103,13 @@ func (bot *Bot) BaseURL(baseURL string) *Bot {
 	return bot
 }
 
+func (bot *Bot) History() *History {
+	return bot.history
+}
+
 func (bot *Bot) checkRedirect(req *http.Request, via []*http.Request) error {
 	log.Printf("Redirecting to: %v (via %v)", req, via)
-	bot.lastURL = req.URL.String()
+	bot.history.Add(req.URL.String())
 	if len(via) > 10 {
 		return ErrTooManyRedirects
 	}
