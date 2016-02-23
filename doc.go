@@ -30,15 +30,15 @@ be done manually.
 
 Getting Started
 
-Bot is designed to allow for you to embedd it in your own bots.
-One primary use case is to allow you to submit an authentication form,
-then issue other requests with the same session cookies
-that were set by the authentication request.
+Bot is designed to allow you to embedd it in your own automation procedures.
+One primary use case is to allow you to submit an authentication request
+and have the session data reused in the next requests to the same target.
+Bot acomplished this with the use of a Cookie Jar.
 
-Bot is highly integrated with GoQuery,
-allowing you to quicly process the HTML responses.
+Bot uses GoQuery internally, and exposes some fun entry points
+to extract data from the resulting response.
 Here is a sample snippet that logins into a service,
-and updates a form.
+and updates the user preferences by resubmitting a form.
 
 	b := bot.New().BaseURL("http://website")
 	page, err := b.POST("/login", url.Values{ "username": {"myuser"}, "password": {"not-a-secret"}})

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -24,40 +25,45 @@ func TestBotCookieJar(t *testing.T) {
 	defer s.Close()
 
 	bot := New()
-	if page, err = bot.Get(s.URL + "/private/"); err != nil {
-		t.Error(err)
+	page, err = bot.GET(s.URL + "/private/")
+
+	if err == nil {
+		t.Errorf("Expected forbidden error, got nil")
+	} else if !strings.Contains(err.Error(), "403") {
+		t.Errorf("Expected 403 forbidden in error message, got %s", err.Error())
 	}
-	if resp, err = page.Raw(); err != nil {
-		t.Error(err)
-	}
-	checkStatus(t, "for unauthorized response", resp.StatusCode, 403)
 
 	// Login and create a cookie
-	if page, err = bot.Post(s.URL+"/login/", make(url.Values)); err != nil {
-		t.Error(err)
+	if page, err = bot.POST(s.URL+"/login/", make(url.Values)); err != nil {
+		t.Errorf("Error performing test authentication: %v", err)
 	}
 
 	if resp, err = page.Raw(); err != nil {
-		t.Error(err)
+		t.Errorf("Unable to fetch raw page: %v", err)
+		return
 	}
-	checkStatus(t, "for login", resp.StatusCode, 200)
+	checkStatus(t, "for login", resp, 200)
 	checkBody(t, page, "OK")
 
 	// We should be able to see private data
-	if page, err = bot.Get(s.URL + "/private/"); err != nil {
+	if page, err = bot.GET(s.URL + "/private/"); err != nil {
 		t.Error(err)
 	}
 
 	if resp, err = page.Raw(); err != nil {
 		t.Error(err)
 	}
-	checkStatus(t, "for authorized request", resp.StatusCode, 200)
+	checkStatus(t, "for authorized request", resp, 200)
 	checkBody(t, page, "PRIVATE")
 }
 
-func checkStatus(t *testing.T, when string, got, expected int) {
-	if got != expected {
-		t.Errorf("Unexpected status code %s: %d, expected %d", when, got, expected)
+func checkStatus(t *testing.T, when string, resp *http.Response, expected int) {
+	if resp == nil {
+		t.Errorf("Response is nil")
+		return
+	}
+	if resp.StatusCode != expected {
+		t.Errorf("Unexpected status code %s: %d, expected %d", when, resp.StatusCode, expected)
 	}
 }
 
