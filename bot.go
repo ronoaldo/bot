@@ -20,7 +20,7 @@ var (
 // Bot implements a statefull HTTP client for interacting with websites.
 type Bot struct {
 	b     string
-	c     http.Client
+	c     *http.Client
 	debug bool
 
 	// lastURL records the last seen URL using the CheckRedirect function.
@@ -30,16 +30,18 @@ type Bot struct {
 
 // New initializes a new Bot with an in-memory cookie management.
 func New() *Bot {
+	return ReuseClient(&http.Client{})
+}
+
+func ReuseClient(c *http.Client) *Bot {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		// Currently, cookiejar.Nil never returns an error
 		panic(err)
 	}
-
+	c.Jar = jar
 	bot := &Bot{
-		c: http.Client{
-			Jar: jar,
-		},
+		c: c,
 		history: &History{},
 	}
 	t := &transport{
@@ -56,11 +58,11 @@ func New() *Bot {
 // It will also return an error if the response is not 2xx,
 // but the returned page is non-nil, and you can parse the error body.
 func (bot *Bot) GET(url string) (*Page, error) {
+	bot.history.Add(bot.b + url)
 	resp, err := bot.c.Get(bot.b + url)
 	if err != nil {
 		return nil, err
 	}
-	bot.history.Add(bot.b + url)
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
@@ -73,11 +75,11 @@ func (bot *Bot) GET(url string) (*Page, error) {
 // It will also return an error if the response is not 2xx,
 // but the returned page is non-nil, and you can parse the error body.
 func (bot *Bot) POST(url string, form url.Values) (*Page, error) {
+	bot.history.Add(bot.b + url)
 	resp, err := bot.c.PostForm(bot.b+url, form)
 	if err != nil {
 		return nil, err
 	}
-	bot.history.Add(bot.b + url)
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}

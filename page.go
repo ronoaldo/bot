@@ -239,13 +239,17 @@ func (page *Page) Forms() ([]Form, error) {
 			debugf("Processando select[name=%s]", name)
 			if name != "" {
 				_select.Find("option").Each(func(k int, option *goquery.Selection) {
-					if option.AttrOr("selected", "notselected") != "notselected" {
-						if value, has := option.Attr("value"); has {
-							fields[name] = append(fields[name], value)
-						} else {
-							fields[name] = append(fields[name], strings.TrimSpace(option.Text()))
-						}
+					v := ""
+					if value, has := option.Attr("value"); has {
+						v = value
+					} else {
+						v = strings.TrimSpace(option.Text())
 					}
+					
+					if option.AttrOr("selected", "notselected") != "notselected" {
+						fields[name] = append(fields[name], v)
+					}
+					fields[name + ":options"] = append(fields[name + ":options"], v)
 				})
 			}
 		})
