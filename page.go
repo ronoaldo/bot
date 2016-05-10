@@ -245,11 +245,11 @@ func (page *Page) Forms() ([]Form, error) {
 					} else {
 						v = strings.TrimSpace(option.Text())
 					}
-					
+
 					if option.AttrOr("selected", "notselected") != "notselected" {
 						fields[name] = append(fields[name], v)
 					}
-					fields[name + ":options"] = append(fields[name + ":options"], v)
+					fields[name+":options"] = append(fields[name+":options"], v)
 				})
 			}
 		})

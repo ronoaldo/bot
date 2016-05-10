@@ -20,6 +20,7 @@ var (
 // Bot implements a statefull HTTP client for interacting with websites.
 type Bot struct {
 	b     string
+	j     *cookiejar.Jar
 	c     *http.Client
 	debug bool
 
@@ -41,7 +42,8 @@ func ReuseClient(c *http.Client) *Bot {
 	}
 	c.Jar = jar
 	bot := &Bot{
-		c: c,
+		j:       jar,
+		c:       c,
 		history: &History{},
 	}
 	t := &transport{
