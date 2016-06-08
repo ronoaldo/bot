@@ -5,13 +5,14 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type CookieJar struct {
 	Data map[string][]*http.Cookie
 }
 
-func (bot *Bot) Cookies() ([]byte, error) {
+func (bot *Bot) EncodeCookies() ([]byte, error) {
 	history := bot.History().Entries()
 	jar := &CookieJar{
 		Data: make(map[string][]*http.Cookie),
@@ -27,7 +28,7 @@ func (bot *Bot) Cookies() ([]byte, error) {
 	return json.MarshalIndent(jar, "", "  ")
 }
 
-func (bot *Bot) SetCookies(cookies []byte) error {
+func (bot *Bot) DecodeCookies(cookies []byte) error {
 	jar := &CookieJar{
 		Data: make(map[string][]*http.Cookie),
 	}
@@ -46,4 +47,18 @@ func (bot *Bot) SetCookies(cookies []byte) error {
 		bot.History().Add(u.String())
 	}
 	return nil
+}
+
+func (bot *Bot) SetCookie(c *http.Cookie) {
+	var host = c.Domain
+	if strings.HasPrefix(host, ".") {
+		host = host[1:]
+	}
+	u := &url.URL{
+		Scheme: "http",
+		Host: host,
+	}
+	log.Printf("Setting cookie: u=%v ; value=%v", u, c)
+	bot.j.SetCookies(u, []*http.Cookie{c})
+	bot.History().Add(u.String())
 }

@@ -31,7 +31,7 @@ type Bot struct {
 
 // New initializes a new Bot with an in-memory cookie management.
 func New() *Bot {
-	return ReuseClient(&http.Client{})
+	return ReuseClient(http.DefaultClient)
 }
 
 func ReuseClient(c *http.Client) *Bot {
@@ -46,8 +46,12 @@ func ReuseClient(c *http.Client) *Bot {
 		c:       c,
 		history: &History{},
 	}
+	origTransport := c.Transport
+	if origTransport == nil {
+		origTransport = http.DefaultTransport
+	}
 	t := &transport{
-		t: http.DefaultTransport,
+		t: origTransport,
 		b: bot,
 	}
 	bot.c.Transport = t
