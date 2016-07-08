@@ -38,7 +38,7 @@ type Form struct {
 // Print pretty prints the form into a human-readable, line delimited string.
 func (f *Form) Print() string {
 	buff := new(bytes.Buffer)
-	fmt.Fprintf(buff, "form#%s\n", f.ID)
+	fmt.Fprintf(buff, "form#%s[action=%s]:\n", f.ID, f.Action)
 	maxw := 0
 	keys := make([]string, 0, len(f.Fields))
 	for k := range f.Fields {
@@ -218,7 +218,7 @@ func (page *Page) Forms() ([]Form, error) {
 			value := input.AttrOr("value", "")
 			debugf("> Parsing input[type=%s, name=%s, value=%s]", _type, name, value)
 			switch strings.ToLower(_type) {
-			case "text", "hidden", "":
+			case "text", "hidden", "password", "":
 				fields[name] = append(fields[name], value)
 			case "radio":
 				// We should only store the selected radio value
