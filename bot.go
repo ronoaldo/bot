@@ -59,6 +59,22 @@ func ReuseClient(c *http.Client) *Bot {
 	return bot
 }
 
+// Do sends the HTTP request using the http.Client.Do.
+// It returns a nil page if there is a network error.
+// It will also return an error if the response is not 2xx,
+// but the returned page is non-nil, and you can parse the error body.
+func (bot *Bot) Do(req *http.Request) (*Page, error) {
+	bot.history.Add(bot.b + req.URL.String())
+	resp, err := bot.c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
+	}
+	return &Page{resp: resp}, nil
+}
+
 // GET performs the HTTP GET to the provided URL and returns a Page.
 // It returns a nil page if there is a network error.
 // It will also return an error if the response is not 2xx,
