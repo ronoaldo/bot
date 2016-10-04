@@ -50,8 +50,12 @@ func (t *transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	req.setUserAgent(t.userAgent())
 	resp, err := t.t.RoundTrip(req.Request)
 	if t.b.debug {
-		b, _ := httputil.DumpResponse(resp, false)
-		log.Printf("Dumped response: \n<<<\n%s\n<<<\n", string(b))
+		if resp != nil {
+			b, _ := httputil.DumpResponse(resp, false)
+			log.Printf("Dumped response: \n<<<\n%s\n<<<\n", string(b))
+		} else {
+			log.Printf("Dumped response: \n<<<\n(nil): err=%v\n<<<\n", err)
+		}
 	}
 	return resp, err
 }
