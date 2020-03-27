@@ -58,4 +58,4 @@ and updates the user preferences by resubmitting a form.
 Bot does not provide any JavaScript inmplementation, nor a Rendering engine.
 It is just a headless, statefull HTTP client.
 */
-package bot // import "ronoaldo.gopkg.net/bot"
+package bot
