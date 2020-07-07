@@ -34,6 +34,11 @@ func New() *Bot {
 	return ReuseClient(http.DefaultClient)
 }
 
+// CustomNew initializes a new Bot with an in-memory cookie management and with custom http.Client.
+func CustomNew(c *http.Client) *Bot {
+	return ReuseClient(c)
+}
+
 func ReuseClient(c *http.Client) *Bot {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
