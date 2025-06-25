@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"ronoaldo.gopkg.net/bot"
+	"github.com/ronoaldo/bot"
 )
 
 func Example() {

@@ -20,7 +20,7 @@ func (bot *Bot) EncodeCookies() ([]byte, error) {
 	for i := range history {
 		u, err := url.Parse(history[i])
 		if err != nil {
-			log.Printf("Invalid URL in history! Skipping cookies from it: " + history[i])
+			log.Printf("Invalid URL in history! Skipping cookies from it: %v", history[i])
 			continue
 		}
 		jar.Data[u.String()] = bot.j.Cookies(u)
@@ -40,7 +40,7 @@ func (bot *Bot) DecodeCookies(cookies []byte) error {
 		v := jar.Data[k]
 		u, err := url.Parse(k)
 		if err != nil {
-			log.Printf("Invalid URL from cookies! Skipping: " + k)
+			log.Printf("Invalid URL from cookies! Skipping: %v", k)
 			continue
 		}
 		bot.j.SetCookies(u, v)
@@ -56,7 +56,7 @@ func (bot *Bot) SetCookie(c *http.Cookie) {
 	}
 	u := &url.URL{
 		Scheme: "http",
-		Host: host,
+		Host:   host,
 	}
 	log.Printf("Setting cookie: u=%v ; value=%v", u, c)
 	bot.j.SetCookies(u, []*http.Cookie{c})
