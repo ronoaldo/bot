@@ -38,10 +38,7 @@ func TestBotCookieJar(t *testing.T) {
 		t.Errorf("Error performing test authentication: %v", err)
 	}
 
-	if resp, err = page.Raw(); err != nil {
-		t.Errorf("Unable to fetch raw page: %v", err)
-		return
-	}
+	resp = page.Raw()
 	checkStatus(t, "for login", resp, 200)
 	checkBody(t, page, "OK")
 
@@ -50,9 +47,7 @@ func TestBotCookieJar(t *testing.T) {
 		t.Error(err)
 	}
 
-	if resp, err = page.Raw(); err != nil {
-		t.Error(err)
-	}
+	resp = page.Raw()
 	checkStatus(t, "for authorized request", resp, 200)
 	checkBody(t, page, "PRIVATE")
 }
@@ -68,13 +63,10 @@ func checkStatus(t *testing.T, when string, resp *http.Response, expected int) {
 }
 
 func checkBody(t *testing.T, page *Page, expected string) {
-	if body, err := page.Bytes(); err != nil {
-		t.Error(err)
-	} else {
-		// Body should be "OK"
-		if string(body) != expected {
-			t.Errorf("Unexpected body, expected '%s', got '%s'", expected, string(body))
-		}
+	body := page.Bytes()
+	// Body should be "OK"
+	if string(body) != expected {
+		t.Errorf("Unexpected body, expected '%s', got '%s'", expected, string(body))
 	}
 }
 

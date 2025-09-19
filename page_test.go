@@ -16,10 +16,7 @@ func TestPageRaw(t *testing.T) {
 	p := &Page{
 		resp: newResponse(ioutil.NopCloser(new(bytes.Buffer))),
 	}
-	resp, err := p.Raw()
-	if err != nil {
-		t.Error(err)
-	}
+	resp := p.Raw()
 	if resp == nil {
 		t.Errorf("Unexpected nil http.Response from Page.Raw()")
 	}
@@ -29,6 +26,7 @@ func TestPageForm(t *testing.T) {
 	p := &Page{
 		resp: newResponse(sampleHTMLPage()),
 	}
+	p.ensureBodyReady()
 
 	forms, err := p.Forms()
 	if err != nil {
@@ -65,6 +63,7 @@ func TestPageTable(t *testing.T) {
 	p := &Page{
 		resp: newResponse(sampleHTMLPage()),
 	}
+	p.ensureBodyReady()
 	tables, err := p.Tables()
 	if err != nil {
 		t.Error(err)

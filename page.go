@@ -80,34 +80,22 @@ type Page struct {
 // This is usefull to inspect the response size, headers, and other attributes.
 // The body is already closed after you call this method, and if you need the raw
 // response bytes, call Body() instead.
-func (page *Page) Raw() (*http.Response, error) {
-	// Load the body in memory before returning.
-	if _, err := page.Body(); err != nil {
-		return nil, err
-	}
-	return page.resp, nil
+func (page *Page) Raw() *http.Response {
+	return page.resp
 }
 
 // Body returns a copy of the response body as a new Reader.
 // Use this if you need to integrate with any third party that expectes the reader.
 // Thi is, basically, a shortcut for bytes.NewReader(page.Body()).
-func (page *Page) Body() (io.Reader, error) {
-	b, err := page.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	return bytes.NewReader(b), nil
+func (page *Page) Body() io.Reader {
+	b := page.Bytes()
+	return bytes.NewReader(b)
 }
 
 // Bytes returns the page body bytes, so you can json.Unmarshal it.
-func (page *Page) Bytes() ([]byte, error) {
-	if err := page.sanityCheck(); err != nil {
-		return nil, err
-	}
-	if err := page.ensureBodyReady(); err != nil {
-		return nil, err
-	}
-	return page.body, nil
+// If the Page object was not properly initialized, it will return nil.
+func (page *Page) Bytes() []byte {
+	return page.body
 }
 
 // Tables parses the response body, and extract all <table>s from it.
@@ -122,14 +110,10 @@ func (page *Page) Bytes() ([]byte, error) {
 // tables.
 func (page *Page) Tables() ([]Table, error) {
 	var (
-		body io.Reader
-		doc  *goquery.Document
-		err  error
+		doc *goquery.Document
+		err error
 	)
-	if body, err = page.Body(); err != nil {
-		return nil, err
-	}
-	if doc, err = goquery.NewDocumentFromReader(body); err != nil {
+	if doc, err = goquery.NewDocumentFromReader(page.Body()); err != nil {
 		return nil, err
 	}
 	debugf("Loaded document from response.")
@@ -178,10 +162,10 @@ func (page *Page) Tables() ([]Table, error) {
 // or if there is an error building the document reader.
 //
 // From the form tag, this method returns the properties:
-// 	* id
-// 	* action
-// 	* method
-// 	* name
+//   - id
+//   - action
+//   - method
+//   - name
 //
 // The parser scans all <input> and <select> elements inside the form,
 // and decodes their values into the Form.Fields map.
@@ -189,14 +173,10 @@ func (page *Page) Tables() ([]Table, error) {
 // attribute, or empty otherwise.
 func (page *Page) Forms() ([]Form, error) {
 	var (
-		body io.Reader
-		doc  *goquery.Document
-		err  error
+		doc *goquery.Document
+		err error
 	)
-	if body, err = page.Body(); err != nil {
-		return nil, err
-	}
-	if doc, err = goquery.NewDocumentFromReader(body); err != nil {
+	if doc, err = goquery.NewDocumentFromReader(page.Body()); err != nil {
 		return nil, err
 	}
 	debugf("Loaded document from response: %#v", doc)
@@ -218,7 +198,7 @@ func (page *Page) Forms() ([]Form, error) {
 			value := input.AttrOr("value", "")
 			debugf("> Parsing input[type=%s, name=%s, value=%s]", _type, name, value)
 			switch strings.ToLower(_type) {
-			case "text", "hidden", "password", "":
+			case "search", "text", "hidden", "password", "":
 				fields[name] = append(fields[name], value)
 			case "radio":
 				// We should only store the selected radio value
@@ -263,6 +243,12 @@ func (page *Page) Forms() ([]Form, error) {
 		})
 	})
 	return forms, nil
+}
+
+// Query returns a goquery.Document to allow jQuery like search over the response.
+func (page *Page) Query() (doc *goquery.Document, err error) {
+	doc, err = goquery.NewDocumentFromReader(page.Body())
+	return
 }
 
 // sanityCheck makes sure that the page is valid, and is wrapping a valid response.

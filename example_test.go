@@ -2,41 +2,42 @@ package bot_test
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/ronoaldo/bot"
 )
 
 func Example() {
 	b := bot.New()
-	page, err := b.GET("http://www.valor.com.br/valor-data/moedas")
+	page, err := b.GET("https://en.wikipedia.org/wiki/Go_(programming_language)")
 	if err != nil {
-		fmt.Printf("Error carregando página: %v", err)
-		return
-	}
-	tables, err := page.Tables()
-	if err != nil {
-		fmt.Printf("Erro extraindo tabelas: %v", err)
+		fmt.Printf("Error loading page: %v", err)
 		return
 	}
 
-	// Lookup the value in the extracted tables
-	if len(tables) > 0 {
-		for _, table := range tables {
-			// Find specific table to parse data from, by class attribute.
-			if strings.Contains(table.Class, "valor_tabela") {
-				// Lookup in the table data pre-processed row text values,
-				// and print the interesting stuff.
-				for _, row := range table.Data {
-					if strings.TrimSpace(strings.ToLower(row[0])) == "dólar comercial" {
-						fmt.Printf("Dólar Comercial, valor de compra: %s\n", strings.TrimSpace(row[1]))
-					}
-					if strings.Contains(strings.ToLower(row[0]), "fonte") {
-						fmt.Println(row[0])
-					}
-				}
-				break
-			}
+	// Some helper functions can make it easier to find forms and tables:
+	forms, err := page.Forms()
+	if err != nil {
+		fmt.Printf("Error parsing forms: %v", err)
+	}
+	for _, form := range forms {
+		if form.ID == "searchform" {
+			fmt.Println("Search action:", form.Action)
+			fmt.Println("Search fields:", form.Fields.Encode())
 		}
 	}
+
+	// For better parsing, we can just use the page.Query method and use
+	// jQuery like sintax (provided by GoQuery)
+	html, err := page.Query()
+	if err != nil {
+		fmt.Printf("Error parsing document: %v", err)
+	}
+
+	h1 := html.Find("h1#firstHeading").First().Text()
+	fmt.Println("Article Title:", h1)
+
+	// Output:
+	// Search action: /w/index.php
+	// Search fields: search=&title=Special%3ASearch
+	// Article Title: Go (programming language)
 }

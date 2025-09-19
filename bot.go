@@ -72,7 +72,11 @@ func (bot *Bot) Do(req *http.Request) (*Page, error) {
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
-	return &Page{resp: resp}, nil
+	p := &Page{resp: resp}
+	if err = p.ensureBodyReady(); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // GET performs the HTTP GET to the provided URL and returns a Page.
@@ -88,7 +92,12 @@ func (bot *Bot) GET(url string) (*Page, error) {
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
-	return &Page{resp: resp}, nil
+	p := &Page{resp: resp}
+	// Loads the response body
+	if err = p.ensureBodyReady(); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // POST performs an HTTP POST to the provided URL,
@@ -105,7 +114,12 @@ func (bot *Bot) POST(url string, form url.Values) (*Page, error) {
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("bot: non 2xx response code: %d: %s", resp.StatusCode, resp.Status)
 	}
-	return &Page{resp: resp}, nil
+	p := &Page{resp: resp}
+	// Loads the response body
+	if err = p.ensureBodyReady(); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // Debug enables debugging messages to standard error stream.
